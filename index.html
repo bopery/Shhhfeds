@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuakMovies - Premium Content Hub</title>
+    <style>
+        :root {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --accent: #e50914;
+            --text: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, var(--accent), #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        h2 {
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #f40612;
+            transform: translateY(-2px);
+        }
+
+        .btc-address {
+            background: rgba(247, 147, 26, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            word-break: break-all;
+            font-family: monospace;
+            border: 1px solid rgba(247, 147, 26, 0.5);
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+            display: block;
+        }
+
+        .error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            display: block;
+        }
+
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 1rem;
+        }
+
+        .movie-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .movie-card:hover {
+            transform: scale(1.05);
+        }
+
+        .movie-card img {
+            width: 100%;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🍿 DuakMovies</h1>
+            <p>Your gateway to unlimited content 🔥</p>
+        </div>
+
+        <!-- Payment Section -->
+        <div class="section" id="paymentSection">
+            <h2>💰 Payment Gateway</h2>
+            <p>Send <strong>$20 USD</strong> in Bitcoin to this address:</p>
+            <div class="btc-address" id="btcAddress">bc1qfqnctztm3cpxm5z7s4dnwxx7ng2v4yauhcqrpt</div>
+            <button onclick="copyBTCAddress()">Copy Bitcoin Address 📋</button>
+            
+            <input type="email" id="userEmail" placeholder="Enter your email" required>
+            <input type="text" id="bitcoinTxId" placeholder="Paste Bitcoin Transaction ID" required>
+            <button onclick="generateAccessCode()">Generate Access Code 🚀</button>
+        </div>
+
+        <!-- Access Code Section -->
+        <div class="section hidden" id="codeSection">
+            <h2>🔑 Access Code</h2>
+            <div id="generatedCode" class="btc-address"></div>
+            <p>This code has been sent to your email and is locked to your device. ✅</p>
+            <button onclick="unlockLibrary()">Unlock Movie Library 🎬</button>
+        </div>
+
+        <!-- HWID Reset Section -->
+        <div class="section">
+            <h2>🔄 HWID Reset</h2>
+            <input type="email" id="resetEmail" placeholder="Your registered email">
+            <button onclick="resetHWID()">Reset Hardware Lock 🔓</button>
+        </div>
+
+        <!-- Movie Library -->
+        <div class="section hidden" id="librarySection">
+            <h2>🎥 Movie Library</h2>
+            <div class="movie-grid">
+                <div class="movie-card">
+                    <div style="background:#333;height:200px;border-radius:5px;display:flex;align-items:center;justify-content:center;">MOVIE POSTER</div>
+                    <p>Latest Blockbuster 2024</p>
+                </div>
+                <div class="movie-card">
+                    <div style="background:#333;height:200px;border-radius:5px;display:flex;align-items:center;justify-content:center;">MOVIE POSTER</div>
+                    <p>Action Packed HD</p>
+                </div>
+                <div class="movie-card">
+                    <div style="background:#333;height:200px;border-radius:5px;display:flex;align-items:center;justify-content:center;">MOVIE POSTER</div>
+                    <p>Exclusive Release</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusMessage" class="status"></div>
+    </div>
+
+    <script>
+        // Simple client-side "storage" using localStorage
+        function getHardwareId() {
+            let hwid = localStorage.getItem('duak_hwid');
+            if (!hwid) {
+                hwid = Math.random().toString(36).substring(2) + 
+                       navigator.userAgent.substring(0, 50) + 
+                       Math.random().toString(36).substring(2);
+                localStorage.setItem('duak_hwid', hwid);
+            }
+            return hwid;
+        }
+
+        function generateStrongCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+            let code = '';
+            for (let i = 0; i < 55; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        function copyBTCAddress() {
+            navigator.clipboard.writeText('bc1qfqnctztm3cpxm5z7s4dnwxx7ng2v4yauhcqrpt');
+            showStatus('Bitcoin address copied to clipboard! 📋', 'success');
+        }
+
+        function generateAccessCode() {
+            const email = document.getElementById('userEmail').value;
+            const txId = document.getElementById('bitcoinTxId').value;
+
+            if (!email || !txId) {
+                showStatus('Please fill in both email and transaction ID, dumbass. ❌', 'error');
+                return;
+            }
+
+            // In a real system, you'd verify the BTC transaction here
+            // For now, we'll generate the code regardless
+            
+            const accessCode = generateStrongCode();
+            const hwid = getHardwareId();
+
+            // Store the code and HWID association
+            localStorage.setItem('duak_access_code', accessCode);
+            localStorage.setItem('duak_user_email', email);
+            localStorage.setItem('duak_hwid_bound', hwid);
+
+            // Show the generated code
+            document.getElementById('generatedCode').textContent = accessCode;
+            document.getElementById('paymentSection').classList.add('hidden');
+            document.getElementById('codeSection').classList.remove('hidden');
+
+            showStatus(`Access code generated and 'sent' to ${email}. Check your spam folder. 🔥`, 'success');
+        }
+
+        function unlockLibrary() {
+            const storedCode = localStorage.getItem('duak_access_code');
+            const storedHWID = localStorage.getItem('duak_hwid_bound');
+            const currentHWID = getHardwareId();
+
+            if (storedCode && storedHWID === currentHWID) {
+                document.getElementById('codeSection').classList.add('hidden');
+                document.getElementById('librarySection').classList.remove('hidden');
+                showStatus('Library unlocked! Welcome to the party. 🎉', 'success');
+            } else {
+                showStatus('HWID mismatch or invalid code. Reset your hardware lock if needed. 🚫', 'error');
+            }
+        }
+
+        function resetHWID() {
+            const email = document.getElementById('resetEmail').value;
+            const storedEmail = localStorage.getItem('duak_user_email');
+
+            if (email === storedEmail) {
+                localStorage.removeItem('duak_hwid_bound');
+                localStorage.removeItem('duak_hwid');
+                showStatus('HWID reset initiated. Generate a new access code. 🔄', 'success');
+            } else {
+                showStatus('Email not found in our records. 🤔', 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+            statusEl.style.display = 'block';
+
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // Check if user already has access
+        window.onload = function() {
+            const storedCode = localStorage.getItem('duak_access_code');
+            if (storedCode) {
+                document.getElementById('generatedCode').textContent = storedCode;
+                document.getElementById('paymentSection').classList.add('hidden');
+                document.getElementById('codeSection').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
