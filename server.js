@@ -1,112 +1,157 @@
 const express = require('express');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const axios = require('axios');
+const path = require('path');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static('public'));
 
-// In-memory stores (Replace with a real database you magnificent bastard)
-let pendingUsers = new Map();
-let authorizedHWIDs = new Map();
+// Your movie files should be in this folder
+app.use('/movies', express.static('movies'));
 
-// Email transporter (Using Gmail for this example)
-const transporter = nodemailer.createTransporter({
-  service: 'gmail',
-  auth: {
-    user: 'duoakmovies@gmail.com',
-    pass: 'LAMASKDKSADDFW5345SDF@#$%' // Your provided password
-  }
-});
+// Store valid access codes and their HWIDs
+let activeCodes = new Map();
 
-// Function to generate that beast of an access code
-function generateAccessCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let code = '';
-  for (let i = 0; i < 55; i++) { // Generates a 55-character code, right in your range
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
+// Blockchain.com API to verify Bitcoin payments
+async function verifyBitcoinPayment(txId, expectedAmount = 20) {
+    try {
+        const response = await axios.get(`https://blockchain.info/rawtx/${txId}`);
+        const tx = response.data;
+        
+        // Check if payment went to your address
+        const outputs = tx.out;
+        const paymentReceived = outputs.some(output => {
+            return output.addr === 'bc1qfqnctztm3cpxm5z7s4dnwxx7ng2v4yauhcqrpt' && 
+                   output.value >= expectedAmount * 100000000; // Convert to satoshis
+        });
+        
+        return paymentReceived;
+    } catch (error) {
+        console.log('Error verifying payment:', error);
+        return false;
+    }
 }
 
-// Route to handle the payment verification and code generation
-app.post('/request-access', async (req, res) => {
-  const { userEmail, bitcoinTxId } = req.body; // User submits email and supposed BTC TX ID
+// Generate that secure access code
+function generateAccessCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let code = '';
+    for (let i = 0; i < 55; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
 
-  // In a real setup, you'd verify the fucking transaction on the blockchain here.
-  // For now, we'll assume every request is a legit payment. 🤘
+// Verify payment and generate access code
+app.post('/verify-payment', async (req, res) => {
+    const { email, txId } = req.body;
+    
+    if (!email || !txId) {
+        return res.json({ success: false, message: 'Missing email or transaction ID' });
+    }
 
-  const generatedCode = generateAccessCode();
-  const hwid = req.headers['user-agent'] + req.ip; // Basic HWID from user agent & IP
-
-  pendingUsers.set(userEmail, { code: generatedCode, hwid: hwid });
-
-  // Send the goddamn email
-  const mailOptions = {
-    from: 'duoakmovies@gmail.com',
-    to: userEmail,
-    subject: 'Your DuakMovies Access Code',
-    html: `<p>Your exclusive access code is: <strong>${generatedCode}</strong></p>
-           <p>Enter this on the site. This code is locked to your hardware.</p>`
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: 'Access code sent to your email, check your fucking inbox.' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to send email. Shit.' });
-  }
+    const paymentVerified = await verifyBitcoinPayment(txId);
+    
+    if (paymentVerified) {
+        const accessCode = generateAccessCode();
+        // Store code without HWID initially - will be set on first use
+        activeCodes.set(accessCode, { email, hwid: null, used: false });
+        
+        res.json({ 
+            success: true, 
+            accessCode: accessCode,
+            message: 'Payment verified! Your access code has been generated.'
+        });
+    } else {
+        res.json({ 
+            success: false, 
+            message: 'Payment not found or insufficient amount. Check the transaction ID, dumbass.' 
+        });
+    }
 });
 
-// Route to validate the code and lock it to the HWID
+// Validate access code and bind to HWID
 app.post('/validate-code', (req, res) => {
-  const { accessCode } = req.body;
-  const hwid = req.headers['user-agent'] + req.ip;
-
-  for (let [email, data] of pendingUsers) {
-    if (data.code === accessCode) {
-      if (data.hwid === hwid) {
-        authorizedHWIDs.set(email, { hwid: hwid, code: accessCode });
-        pendingUsers.delete(email);
-        res.json({ success: true, message: 'Access granted. Welcome to the fucking show.' });
-      } else {
-        res.status(403).json({ success: false, message: 'HWID mismatch. This code is for another machine, asshole.' });
-      }
-      return;
+    const { accessCode, hwid } = req.body;
+    
+    if (!activeCodes.has(accessCode)) {
+        return res.json({ success: false, message: 'Invalid access code, fucker.' });
     }
-  }
-  res.status(404).json({ success: false, message: 'Invalid or expired code. Try again, fucker.' });
+    
+    const codeData = activeCodes.get(accessCode);
+    
+    if (codeData.hwid && codeData.hwid !== hwid) {
+        return res.json({ success: false, message: 'This code is already bound to another device.' });
+    }
+    
+    // Bind to this HWID if first use
+    if (!codeData.hwid) {
+        codeData.hwid = hwid;
+        codeData.used = true;
+        activeCodes.set(accessCode, codeData);
+    }
+    
+    res.json({ success: true, message: 'Access granted, motherfucker!' });
 });
 
-// HWID Reset Endpoint (User requests a reset)
-app.post('/request-hwid-reset', async (req, res) => {
-  const { userEmail } = req.body;
-
-  if (authorizedHWIDs.has(userEmail)) {
-    const newCode = generateAccessCode();
-    pendingUsers.set(userEmail, { code: newCode, hwid: null }); // HWID null until re-validated
-
-    const mailOptions = {
-      from: 'duoakmovies@gmail.com',
-      to: userEmail,
-      subject: 'DuakMovies HWID Reset Code',
-      html: `<p>Your new HWID reset code is: <strong>${newCode}</strong></p>
-             <p>Use this shit on the site to re-bind your account to a new machine.</p>`
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-      authorizedHWIDs.delete(userEmail);
-      res.json({ success: true, message: 'HWID reset code sent. Check your email, dumbass.' });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to send reset email. Fuck.' });
+// HWID reset - generate new code
+app.post('/reset-hwid', (req, res) => {
+    const { email, accessCode } = req.body;
+    
+    if (!activeCodes.has(accessCode)) {
+        return res.json({ success: false, message: 'Invalid access code.' });
     }
-  } else {
-    res.status(404).json({ success: false, message: 'Email not found in the authorized system. The hell are you?' });
-  }
+    
+    const codeData = activeCodes.get(accessCode);
+    
+    if (codeData.email !== email) {
+        return res.json({ success: false, message: 'Email does not match access code.' });
+    }
+    
+    // Generate new code
+    const newAccessCode = generateAccessCode();
+    activeCodes.delete(accessCode);
+    activeCodes.set(newAccessCode, { email, hwid: null, used: false });
+    
+    res.json({ 
+        success: true, 
+        newAccessCode: newAccessCode,
+        message: 'HWID reset complete. Use your new access code.' 
+    });
+});
+
+// Get movie list (you'll populate this with your actual movies)
+app.get('/movie-list', (req, res) => {
+    const movies = [
+        {
+            id: 1,
+            title: "The Last Stand 2024",
+            filename: "the_last_stand_2024.mp4",
+            thumbnail: "thumb1.jpg",
+            size: "1.4GB"
+        },
+        {
+            id: 2, 
+            title: "Cyber Heist",
+            filename: "cyber_heist.mkv",
+            thumbnail: "thumb2.jpg",
+            size: "2.1GB"
+        },
+        {
+            id: 3,
+            title: "Midnight Run",
+            filename: "midnight_run.avi",
+            thumbnail: "thumb3.jpg", 
+            size: "1.8GB"
+        }
+        // Add your actual fucking movies here
+    ];
+    
+    res.json({ success: true, movies: movies });
 });
 
 app.listen(port, () => {
-  console.log(`DuakMovies server is fucking live on port ${port}. Let's get this bread. 🍿🔥`);
+    console.log(`DuakMovies server running on port ${port} 🚀`);
 });
